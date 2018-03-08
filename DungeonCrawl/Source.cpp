@@ -4,13 +4,14 @@
 #include <windows.h>
 #include <stdlib.h>
 #include <conio.h>
+#include <vector>
 #include <time.h> 
 #define width 10
 #define height 10
+#define STASIS_VAL -1
 #define ENTITY_VAL 1
 #define ITEM_VAL 2
 #define EXIT_VAL 3
-#define STASIS_VAL -1
 #define EMPTY_MARK '-'
 #define ENEMY_MARK 'E'
 #define PLAYER_MARK 'P'
@@ -21,10 +22,12 @@
 #define LEFT 2
 #define DOWN 3
 #define RIGHT 4
-
 using namespace std;
 
+int enemy_count = 5;
+bool delete_enemy;
 char board[width][height];
+
 void print_board();
 
 class entity {
@@ -36,13 +39,15 @@ class entity {
 		int check_direction(int x, int y);
 	public:
 		void set_mark(char x);
+		int get_x_pos();
+		int get_y_pos();
+		void set_board(); // Used for setting mark position on board
 		void set_spawn();
 		void move_up();
 		void move_left();
 		void move_down();
 		void move_right();
 		void check_collision(int val1, int val2);
-		
 };
 
 class player : public entity {
@@ -51,12 +56,24 @@ public:
 };
 
 class enemy : public entity {
+
 public:
 	void enemy_select_move();
 };
 
+void entity::set_board() {
+	board[y_pos][x_pos] = mark;
+}
+
 void entity::set_mark(char x){
 	mark = x;
+}
+
+int entity::get_x_pos() {
+	return x_pos;
+}
+int entity::get_y_pos() {
+	return y_pos;
 }
 
 void entity::set_spawn() {
@@ -100,6 +117,7 @@ void entity::move_right() {
 
 void entity::check_collision(int val1, int val2) {
 	int rVal;
+	delete_enemy = 0; // Reset delete_enemy value
 	switch (direction) {
 	case UP:
 		rVal = check_direction(y_pos - 1, x_pos); // Check up, then move if possisble
@@ -128,19 +146,24 @@ void entity::check_collision(int val1, int val2) {
 	}
 	if (rVal == 1) {
 		// battle
+		print_board();
 		cout << "Enemy encounter! Prepare for battle . . .\n";
+		delete_enemy = 1;
 		Sleep(500);
 	}
 	else if (rVal == 2) {
 		//Get item
+		print_board();
 		cout << "PLAYER GOT ITEM!\n";
 		Sleep(500);
 	}
 	else if (rVal == 3) {
 		//Load next level
+		print_board();
 		cout << "LOADING NEXT LEVEL\n";
 		Sleep(500);
 	}
+
 }
 
 int entity::check_direction(int y, int x) {
@@ -199,6 +222,34 @@ void enemy::enemy_select_move() {
 	direction = rand() % 4 + 1;
 }
 
+
+void spawn_enemy(vector<enemy> &Enemies) {
+	for (int i = 0; i < Enemies.size(); i++) {
+		Enemies[i].set_mark(ENEMY_MARK);
+		Enemies[i].set_spawn();
+	}
+}
+
+// Move function sets delete_enemy variable. This function deletes enemy if delete_enemy = true.
+int check_delete_enemy(vector<enemy> &Enemies, player& player) {
+	if (delete_enemy == 1) {
+		for (int i = 0; i < Enemies.size(); i++) {
+			int e_x = Enemies[i].get_x_pos();
+			int e_y = Enemies[i].get_y_pos();
+			int p_x = player.get_x_pos();
+			int p_y = player.get_y_pos();
+			if (e_x == p_x && e_y == p_y) {
+				cout << "WOWWOWOOWOWW WHASAAATT?!! \n";
+				cout << "encountered enemy " << i << "\n";
+				Enemies.erase(Enemies.begin() + i);
+				player.set_board();
+				Sleep(1000);
+				return i;
+			}
+		}
+	}
+}
+
 int main() {
 	
 	srand(time(0));
@@ -208,22 +259,27 @@ int main() {
 		}
 	}
 	player player;
-	enemy enemy[10];
+	vector <enemy> Enemies(enemy_count);
 	player.set_mark(PLAYER_MARK);
-	enemy[0].set_mark(ENEMY_MARK);
 	print_board(); // Need to print board to update set_spawn
 	player.set_spawn();
+	spawn_enemy(Enemies);
+	
 	int x = 1;
 
 	do {
 		print_board();
 		player.player_select_move(); 
-		player.check_collision(0,0); //Player can move to items and exit, so 0 is added as prameters. 
+		player.check_collision(0,0); //Player can move to items and exit, so 0 is added as prameters
+		check_delete_enemy(Enemies, player); // Parameters are needed to check respective objects x and y positions.
 		print_board();
-		/*
-		enemy1.enemy_select_move();
-		enemy1.check_collision(ITEM_VAL, EXIT_VAL);
-		*/
+		
+		for (int i = 0; i < Enemies.size(); i++) {
+
+			Enemies[i].enemy_select_move();
+			Enemies[i].check_collision(EXIT_VAL, ITEM_VAL);
+			check_delete_enemy(Enemies, player);
+		}
 	} while (x==1);
 }
 
